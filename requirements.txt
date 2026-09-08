@@ -1,0 +1,27 @@
+# Core
+requests
+beautifulsoup4
+httpx
+
+# Server
+fastapi
+uvicorn[standard]
+pydantic-settings
+python-dotenv
+itsdangerous
+
+# Security
+werkzeug
+cryptography
+
+# Preprocessing
+jsbeautifier
+
+# Proxy support (SOCKS)
+pysocks
+
+# Templates
+jinja2
+
+# Optional: SPA rendering (uncomment if needed)
+playwright

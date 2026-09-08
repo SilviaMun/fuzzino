@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fuzzino — Login</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0c0e14; --surface: #13161f; --border: #252a3a;
+    --text: #c8cdd8; --text-dim: #6b7280; --accent: #6366f1;
+    --accent-dim: #4f46e5; --critical: #ef4444;
+    --mono: 'SF Mono','Cascadia Code','Consolas',monospace;
+    --sans: 'Inter',-apple-system,system-ui,sans-serif;
+  }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 40px; width: 100%; max-width: 380px; }
+  h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; color: #e2e5eb; }
+  h1 span { color: var(--accent); }
+  .sub { font-size: 13px; color: var(--text-dim); margin-bottom: 28px; }
+  label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+  input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; color: var(--text); font-size: 14px; font-family: var(--mono); outline: none; margin-bottom: 16px; transition: border-color .15s; }
+  input:focus { border-color: var(--accent); }
+  .btn { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--sans); transition: background .15s; }
+  .btn:hover { background: var(--accent-dim); }
+  .err { color: var(--critical); font-size: 13px; margin-bottom: 12px; display: none; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1><span>⬡</span> Fuzzino</h1>
+  <p class="sub">Log in to continue</p>
+  <div class="err" id="err"></div>
+  <label>Username</label>
+  <input type="text" id="user" autofocus>
+  <label>Password</label>
+  <input type="password" id="pass" onkeydown="if(event.key==='Enter')login()">
+  <button class="btn" onclick="login()">Log in</button>
+</div>
+<script>
+async function login() {
+  const err = document.getElementById('err');
+  err.style.display = 'none';
+  const r = await fetch('/api/login', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({username: document.getElementById('user').value, password: document.getElementById('pass').value})
+  });
+  const d = await r.json();
+  if (d.ok) { window.location.href = '/'; }
+  else { err.textContent = d.error; err.style.display = 'block'; }
+}
+</script>
+</body>
+</html>

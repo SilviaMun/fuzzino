@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fuzzino</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0c0e14; --surface: #13161f; --surface2: #1a1e2a; --border: #252a3a;
+    --text: #c8cdd8; --text-dim: #6b7280; --accent: #6366f1; --accent-dim: #4f46e5;
+    --critical: #ef4444; --high: #f97316; --medium: #eab308; --low: #3b82f6;
+    --info: #6b7280; --green: #22c55e;
+    --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace;
+    --sans: 'Inter',-apple-system,system-ui,sans-serif;
+  }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; }
+  .shell { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+
+  /* Top bar */
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+  .topbar h1 { font-size: 20px; font-weight: 600; color: #e2e5eb; }
+  .topbar h1 span { color: var(--accent); }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .user-badge { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+  .btn { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--sans); transition: background .15s; }
+  .btn:hover { background: var(--accent-dim); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+  .btn-danger { background: var(--critical); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .tab { padding: 10px 20px; font-size: 13px; font-weight: 500; color: var(--text-dim); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Form */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+  .field input, .field select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; color: var(--text); font-size: 14px; font-family: var(--mono); outline: none; transition: border-color .15s; }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .row { display: flex; gap: 12px; }
+  .row .field { flex: 1; }
+  .form-gap { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Progress */
+  .progress-box { display: none; }
+  .progress-box.active { display: block; }
+  .pbar-track { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-bottom: 12px; }
+  .pbar-fill { height: 100%; background: var(--accent); border-radius: 2px; width: 0%; transition: width .4s ease; }
+  .progress-msg { font-family: var(--mono); font-size: 12px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Status badge */
+  .status { font-size: 11px; font-weight: 600; font-family: var(--mono); padding: 2px 8px; border-radius: 4px; }
+  .status-done { background: rgba(34,197,94,.15); color: var(--green); }
+  .status-running { background: rgba(99,102,241,.15); color: var(--accent); }
+  .status-error { background: rgba(239,68,68,.15); color: var(--critical); }
+
+  /* History table */
+  .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .history-table th { text-align: left; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-weight: 500; }
+  .history-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .history-table tr:hover td { background: var(--surface2); }
+  .history-table .target-cell { font-family: var(--mono); font-size: 12px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .history-table .user-cell { color: var(--text-dim); }
+  .history-table .date-cell { color: var(--text-dim); font-family: var(--mono); font-size: 12px; }
+  .clickable { cursor: pointer; }
+
+  /* Severity pills */
+  .sev-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+  .pill { font-size: 11px; font-weight: 600; font-family: var(--mono); padding: 1px 8px; border-radius: 10px; }
+  .pill-critical { color: var(--critical); background: rgba(239,68,68,.12); }
+  .pill-high { color: var(--high); background: rgba(249,115,22,.12); }
+  .pill-medium { color: var(--medium); background: rgba(234,179,8,.12); }
+  .pill-low { color: var(--low); background: rgba(59,130,246,.12); }
+  .pill-info { color: var(--info); background: rgba(107,114,128,.12); }
+
+  /* Report */
+  .report-header h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #e2e5eb; }
+  .stats { display: flex; gap: 24px; flex-wrap: wrap; }
+  .stat-val { font-size: 28px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+  .stat-label { font-size: 11px; color: var(--text-dim); margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
+  .finding { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 10px; transition: border-color .15s; }
+  .finding:hover { border-color: var(--accent); }
+  .finding-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sev-badge { font-size: 11px; font-weight: 700; font-family: var(--mono); padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
+  .sev-critical { background: rgba(239,68,68,.15); color: var(--critical); }
+  .sev-high { background: rgba(249,115,22,.15); color: var(--high); }
+  .sev-medium { background: rgba(234,179,8,.15); color: var(--medium); }
+  .sev-low { background: rgba(59,130,246,.15); color: var(--low); }
+  .sev-info { background: rgba(107,114,128,.15); color: var(--info); }
+  .finding-cat { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+  .finding-desc { font-size: 14px; margin-bottom: 10px; }
+  .finding-meta { font-size: 12px; color: var(--text-dim); display: flex; flex-direction: column; gap: 6px; }
+  .finding-meta strong { color: var(--text); font-weight: 500; }
+  .evidence-code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); overflow-x: auto; margin-top: 4px; white-space: pre-wrap; word-break: break-all; }
+  .source-link { font-family: var(--mono); font-size: 12px; color: var(--accent); word-break: break-all; }
+  .no-findings { padding: 40px; text-align: center; color: var(--green); font-weight: 600; }
+  .back-link { font-size: 13px; color: var(--accent); cursor: pointer; margin-bottom: 16px; display: inline-block; }
+  .back-link:hover { text-decoration: underline; }
+  .conn-status { font-size: 12px; font-family: var(--mono); margin-bottom: 16px; padding: 8px 12px; border-radius: 6px; background: var(--surface2); }
+  .conn-ok { color: var(--green); }
+  .conn-err { color: var(--critical); }
+
+  /* Users table */
+  .users-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .users-table th { text-align: left; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-weight: 500; }
+  .users-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .add-user-form { display: flex; gap: 8px; margin-top: 16px; align-items: flex-end; }
+  .add-user-form input { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 13px; font-family: var(--mono); outline: none; width: 160px; }
+
+  .actions-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  @media (max-width: 640px) { .row { flex-direction: column; } .add-user-form { flex-direction: column; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <h1><span>⬡</span> Fuzzino</h1>
+    <div class="topbar-right">
+      <span class="user-badge" id="userBadge">{{ username }}</span>
+      <button class="btn btn-sm btn-outline" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('scan')">New scan</div>
+    <div class="tab" onclick="switchTab('history')">History</div>
+    <div class="tab" onclick="switchTab('users')" id="usersTab" style="display:none">Users</div>
+    <div class="tab" onclick="switchTab('settings')">Settings</div>
+  </div>
+
+  <!-- ═══ SCAN TAB ═══ -->
+  <div class="tab-panel active" id="panel-scan">
+    <div id="connStatus" class="conn-status" style="display:none"></div>
+    <div class="card">
+      <div class="form-gap">
+        <div class="field">
+          <label>Target URL</label>
+          <input type="text" id="targetUrl" placeholder="https://example.com" autofocus>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Ollama Host</label>
+            <input type="text" id="ollamaHost" value="http://localhost:11434">
+          </div>
+          <div class="field">
+            <label>Model</label>
+            <select id="modelSelect"><option value="">Loading...</option></select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Proxy (optional — for VPN/corporate)</label>
+            <input type="text" id="proxyInput" placeholder="http://127.0.0.1:8080 or socks5://vpn:1080">
+          </div>
+          <div class="field" style="max-width:140px">
+            <label>Rate limit (s)</label>
+            <input type="number" id="rateLimit" value="0.1" step="0.1" min="0" style="font-family:var(--mono)">
+          </div>
+        </div>
+        <div><button class="btn" id="scanBtn" onclick="startScan()">Start scan</button></div>
+      </div>
+    </div>
+    <div class="progress-box card" id="progressBox">
+      <div class="pbar-track"><div class="pbar-fill" id="pbarFill"></div></div>
+      <div class="progress-msg" id="progressMsg">Initializing...</div>
+    </div>
+  </div>
+
+  <!-- ═══ HISTORY TAB ═══ -->
+  <div class="tab-panel" id="panel-history">
+    <div id="historyList"></div>
+    <div id="reportView" style="display:none"></div>
+  </div>
+
+  <!-- ═══ USERS TAB ═══ -->
+  <div class="tab-panel" id="panel-users">
+    <div class="card">
+      <div id="usersList"></div>
+      <div class="add-user-form">
+        <input type="text" id="newUser" placeholder="Username">
+        <input type="password" id="newPass" placeholder="Password">
+        <button class="btn btn-sm" onclick="addUser()">Add user</button>
+      </div>
+    </div>
+  <!-- ═══ SETTINGS TAB ═══ -->
+  <div class="tab-panel" id="panel-settings">
+    <!-- Password change -->
+    <div class="card">
+      <h3 style="font-size:14px;margin-bottom:12px;color:#e2e5eb">Change password</h3>
+      <div class="form-gap">
+        <div class="field"><label>Current password</label><input type="password" id="curPass"></div>
+        <div class="field"><label>New password</label><input type="password" id="newPass"></div>
+        <div><button class="btn btn-sm" onclick="changePassword()">Update password</button></div>
+        <div id="pwMsg" style="font-size:12px;display:none"></div>
+      </div>
+    </div>
+
+    <!-- False positives -->
+    <div class="card" style="margin-top:16px">
+      <h3 style="font-size:14px;margin-bottom:12px;color:#e2e5eb">False positives</h3>
+      <div id="fpList" style="font-size:13px;color:var(--text-dim)">Loading...</div>
+    </div>
+
+    <!-- Scan diff -->
+    <div class="card" style="margin-top:16px">
+      <h3 style="font-size:14px;margin-bottom:12px;color:#e2e5eb">Compare scans</h3>
+      <div class="row">
+        <div class="field"><label>Old scan ID</label><input type="number" id="diffOld" placeholder="#"></div>
+        <div class="field"><label>New scan ID</label><input type="number" id="diffNew" placeholder="#"></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn btn-sm" onclick="runDiff()">Compare</button></div>
+      </div>
+      <div id="diffResult" style="margin-top:12px;display:none"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let currentRole = '';
+let activeScanId = null;
+
+// ── Tabs ──
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+  $('panel-' + name).classList.add('active');
+  if (name === 'history') loadHistory();
+  if (name === 'users') loadUsers();
+  if (name === 'settings') loadFPs();
+}
+
+// ── Auth ──
+async function logout() {
+  await api('/api/logout', {method:'POST'});
+  window.location.href = '/login';
+}
+
+// ── Models ──
+async function loadModels() {
+  const sel = $('modelSelect');
+  const status = $('connStatus');
+  sel.innerHTML = '<option value="">Loading...</option>';
+  try {
+    const r = await fetch('/api/models');
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    sel.innerHTML = d.models.map(m =>
+      `<option value="${m}" ${m===d.default?'selected':''}>${m}</option>`
+    ).join('');
+    status.style.display = 'block';
+    status.className = 'conn-status conn-ok';
+    status.textContent = `✓ Ollama connected — ${d.models.length} model(s)`;
+  } catch(e) {
+    sel.innerHTML = '<option value="">Connection failed</option>';
+    status.style.display = 'block';
+    status.className = 'conn-status conn-err';
+    status.textContent = `✗ Cannot reach Ollama — ${e.message}`;
+  }
+}
+$('ollamaHost').addEventListener('change', loadModels);
+
+// ── Scan ──
+async function startScan() {
+  const url = $('targetUrl').value.trim();
+  const model = $('modelSelect').value;
+  const ollama = $('ollamaHost').value.trim();
+  if (!url || !model) return;
+
+  $('scanBtn').disabled = true;
+  $('progressBox').classList.add('active');
+
+  const r = await api('/api/scan', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({url, model, ollama_host: ollama, proxy: $('proxyInput').value.trim(), rate_limit: parseFloat($('rateLimit').value) || 0.1})
+  });
+  const d = await r.json();
+  if (d.error) {
+    $('progressMsg').textContent = d.error;
+    $('scanBtn').disabled = false;
+    return;
+  }
+  activeScanId = d.scan_id;
+  pollScan(d.scan_id);
+}
+
+async function pollScan(scanId) {
+  try {
+    const r = await fetch(`/api/scan/${scanId}/status`);
+    const d = await r.json();
+    $('pbarFill').style.width = d.progress + '%';
+    $('progressMsg').textContent = d.message || d.status;
+
+    if (d.status === 'running') {
+      setTimeout(() => pollScan(scanId), 1000);
+    } else if (d.status === 'error') {
+      $('progressMsg').textContent = 'Error: ' + d.message;
+      $('scanBtn').disabled = false;
+    } else if (d.status === 'done') {
+      $('progressBox').classList.remove('active');
+      $('scanBtn').disabled = false;
+      switchTab('history');
+      viewReport(scanId);
+    }
+  } catch { setTimeout(() => pollScan(scanId), 2000); }
+}
+
+// ── History ──
+async function loadHistory() {
+  $('reportView').style.display = 'none';
+  $('historyList').style.display = 'block';
+  const r = await fetch('/api/scans');
+  const scans = await r.json();
+
+  if (!scans.length) {
+    $('historyList').innerHTML = '<div class="card" style="text-align:center;color:var(--text-dim)">No scans yet</div>';
+    return;
+  }
+
+  let html = '<table class="history-table"><thead><tr><th>Target</th><th>User</th><th>Model</th><th>Status</th><th>Findings</th><th>Date</th></tr></thead><tbody>';
+  for (const s of scans) {
+    const sevPills = Object.entries(s.severity_counts||{}).map(([k,v]) =>
+      `<span class="pill pill-${k.toLowerCase()}">${v}</span>`
+    ).join(' ');
+
+    const statusCls = s.status === 'done' ? 'status-done' : s.status === 'running' ? 'status-running' : 'status-error';
+    const click = s.status === 'done' ? `class="clickable" onclick="viewReport(${s.id})"` : '';
+    const date = s.started_at ? new Date(s.started_at + 'Z').toLocaleString() : '';
+
+    html += `<tr ${click}>
+      <td class="target-cell">${esc(s.target_url)}</td>
+      <td class="user-cell">${esc(s.username)}</td>
+      <td class="user-cell">${esc(s.model)}</td>
+      <td><span class="status ${statusCls}">${s.status}</span></td>
+      <td><div class="sev-pills">${sevPills || '—'}</div></td>
+      <td class="date-cell">${date}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  $('historyList').innerHTML = html;
+}
+
+let activeFilter = null; // current severity filter
+
+async function viewReport(scanId) {
+  $('historyList').style.display = 'none';
+  const rv = $('reportView');
+  rv.style.display = 'block';
+  rv.innerHTML = '<div class="card" style="color:var(--text-dim)">Loading report...</div>';
+  activeFilter = null;
+
+  const r = await fetch(`/api/scan/${scanId}/report`);
+  const rpt = await r.json();
+  if (rpt.error) { rv.innerHTML = `<div class="card" style="color:var(--critical)">${rpt.error}</div>`; return; }
+
+  const counts = rpt.severity_counts || {};
+  let pills = '';
+  for (const sev of ['CRITICAL','HIGH','MEDIUM','LOW','INFO']) {
+    if (counts[sev]) pills += `<span class="pill pill-${sev.toLowerCase()} sev-filter" data-sev="${sev}" onclick="toggleSevFilter('${sev}')" style="cursor:pointer">${sev} ${counts[sev]}</span>`;
+  }
+  if (Object.keys(counts).length > 1) {
+    pills += `<span class="pill sev-filter-all" onclick="toggleSevFilter(null)" style="cursor:pointer;opacity:.5">ALL</span>`;
+  }
+
+  let html = `<span class="back-link" onclick="loadHistory()">← Back to history</span>
+    <div class="card report-header">
+      <h2>Scan: ${esc(rpt.target)}</h2>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:16px">by ${esc(rpt.username||'')} · ${rpt.scan_date||''} · model: ${esc(rpt.model)}</p>
+      <div class="stats">
+        <div><span class="stat-val">${rpt.files_scanned}</span><div class="stat-label">Files</div></div>
+        <div><span class="stat-val">${rpt.total_findings}</span><div class="stat-label">Findings</div></div>
+      </div>
+      ${pills ? '<div class="sev-pills" id="sevPills" style="margin-top:16px">'+pills+'</div>' : ''}
+      <div class="actions-row">
+        <button class="btn btn-sm btn-outline" onclick="window.open('/api/scan/${scanId}/download')">Download JSON</button>
+        <button class="btn btn-sm btn-outline" onclick="window.open('/api/scan/${scanId}/download-html')">Download HTML report</button>
+      </div>
+    </div>`;
+
+  if (!rpt.findings || !rpt.findings.length) {
+    html += '<div class="card no-findings">No significant vulnerabilities found</div>';
+  } else {
+    for (const f of rpt.findings) {
+      const sev = (f.severity||'info').toLowerCase();
+      html += `<div class="finding" data-severity="${(f.severity||'INFO').toUpperCase()}">
+        <div class="finding-head">
+          <span class="sev-badge sev-${sev}">${esc(f.severity)}</span>
+          <span class="finding-cat">${esc(f.category)}</span>
+        </div>
+        <div class="finding-desc">${esc(f.description)}</div>
+        <div class="finding-meta">
+          <div><strong>Impact:</strong> ${esc(f.impact)}</div>
+          <div><strong>Fix:</strong> ${esc(f.recommendation)}</div>
+          ${f.evidence ? '<div class="evidence-code">'+esc(f.evidence)+'</div>' : ''}
+          <span class="source-link">${esc(f.source_url)}</span>
+          <div style="margin-top:8px"><button class="btn btn-sm btn-outline" onclick="markFP(this, ${JSON.stringify(rpt.target)}, ${JSON.stringify(f.description||'')}, ${JSON.stringify(f.evidence||'')})">Mark as false positive</button></div>
+        </div>
+      </div>`;
+    }
+  }
+  rv.innerHTML = html;
+}
+
+function toggleSevFilter(sev) {
+  // Toggle: click same pill again → clear filter
+  if (activeFilter === sev) sev = null;
+  activeFilter = sev;
+
+  // Update pill styles
+  document.querySelectorAll('.sev-filter').forEach(p => {
+    if (!sev) { p.style.opacity = '1'; p.style.outline = 'none'; }
+    else if (p.dataset.sev === sev) { p.style.opacity = '1'; p.style.outline = '2px solid var(--accent)'; p.style.outlineOffset = '2px'; }
+    else { p.style.opacity = '.3'; p.style.outline = 'none'; }
+  });
+  const allBtn = document.querySelector('.sev-filter-all');
+  if (allBtn) allBtn.style.opacity = sev ? '.5' : '1';
+
+  // Show/hide findings
+  document.querySelectorAll('.finding[data-severity]').forEach(f => {
+    if (!sev || f.dataset.severity === sev) { f.style.display = ''; }
+    else { f.style.display = 'none'; }
+  });
+}
+
+// ── Users (admin) ──
+async function loadUsers() {
+  try {
+    const r = await fetch('/api/users');
+    if (r.status === 403) { $('usersTab').style.display = 'none'; return; }
+    const users = await r.json();
+    let html = '<table class="users-table"><thead><tr><th>Username</th><th>Role</th><th>Created</th><th></th></tr></thead><tbody>';
+    for (const u of users) {
+      html += `<tr>
+        <td>${esc(u.username)}</td>
+        <td>${esc(u.role)}</td>
+        <td class="date-cell">${u.created_at||''}</td>
+        <td>${u.role!=='admin' ? `<button class="btn btn-sm btn-outline" onclick="delUser(${u.id})">Remove</button>` : ''}</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    $('usersList').innerHTML = html;
+  } catch {}
+}
+
+async function addUser() {
+  const u = $('newUser').value.trim(), p = $('newPass').value.trim();
+  if (!u || !p) return;
+  const r = await api('/api/users', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({username:u, password:p})
+  });
+  const d = await r.json();
+  if (d.error) alert(d.error);
+  else { $('newUser').value=''; $('newPass').value=''; loadUsers(); }
+}
+
+async function delUser(id) {
+  if (!confirm('Remove this user?')) return;
+  await api(`/api/users/${id}`, {method:'DELETE'});
+  loadUsers();
+}
+
+function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+// ── CSRF ──
+let csrfToken = '{{ csrf_token | default("") }}';
+
+function api(url, opts = {}) {
+  opts.headers = opts.headers || {};
+  opts.headers['Content-Type'] = opts.headers['Content-Type'] || 'application/json';
+  if (csrfToken) opts.headers['X-CSRF-Token'] = csrfToken;
+  return fetch(url, opts);
+}
+
+// ── Password Change ──
+async function changePassword() {
+  const msg = $('pwMsg');
+  const r = await api('/api/users/change-password', {
+    method:'POST',
+    body: JSON.stringify({current_password: $('curPass').value, new_password: $('newPass').value})
+  });
+  const d = await r.json();
+  msg.style.display = 'block';
+  if (r.ok) {
+    msg.style.color = 'var(--green)';
+    msg.textContent = 'Password updated';
+    $('curPass').value = ''; $('newPass').value = '';
+  } else {
+    msg.style.color = 'var(--critical)';
+    msg.textContent = d.detail || 'Error';
+  }
+}
+
+// ── False Positives ──
+async function loadFPs() {
+  try {
+    const r = await fetch('/api/false-positives');
+    const fps = await r.json();
+    if (!fps.length) { $('fpList').textContent = 'No false positives marked.'; return; }
+    let html = '<table class="history-table"><thead><tr><th>Target</th><th>Description</th><th>Reason</th><th></th></tr></thead><tbody>';
+    for (const fp of fps) {
+      html += `<tr><td class="mono" style="font-size:11px">${esc(fp.target_pattern)}</td><td>${esc(fp.finding_description)}</td><td>${esc(fp.reason)}</td><td><button class="btn btn-sm btn-outline" onclick="removeFP(${fp.id})">Remove</button></td></tr>`;
+    }
+    html += '</tbody></table>';
+    $('fpList').innerHTML = html;
+  } catch { $('fpList').textContent = 'Failed to load.'; }
+}
+
+async function removeFP(id) {
+  await api(`/api/false-positives/${id}`, {method:'DELETE'});
+  loadFPs();
+}
+
+async function markFP(btn, target, description, evidence) {
+  const reason = prompt('Reason (optional):') || '';
+  const r = await api('/api/false-positives', {
+    method:'POST',
+    body: JSON.stringify({target_pattern: target, description, evidence, reason})
+  });
+  if (r.ok) {
+    btn.textContent = '✓ Marked';
+    btn.disabled = true;
+    btn.style.color = 'var(--green)';
+    btn.style.borderColor = 'var(--green)';
+  }
+}
+
+// ── Scan Diff ──
+async function runDiff() {
+  const oldId = $('diffOld').value, newId = $('diffNew').value;
+  if (!oldId || !newId) return;
+  const dr = $('diffResult');
+  dr.style.display = 'block';
+  dr.innerHTML = '<span style="color:var(--text-dim)">Loading...</span>';
+  const r = await fetch(`/api/scan/${oldId}/diff/${newId}`);
+  if (!r.ok) { dr.innerHTML = `<span style="color:var(--critical)">${(await r.json()).detail}</span>`; return; }
+  const d = await r.json();
+  let html = `<div style="font-size:13px;display:flex;gap:24px;margin-bottom:12px">
+    <div><span class="stat-val" style="font-size:20px;color:var(--critical)">${d.summary.new_findings}</span><div class="stat-label">New</div></div>
+    <div><span class="stat-val" style="font-size:20px;color:var(--green)">${d.summary.resolved_findings}</span><div class="stat-label">Resolved</div></div>
+    <div><span class="stat-val" style="font-size:20px">${d.summary.changed_severity}</span><div class="stat-label">Changed</div></div>
+  </div>`;
+  if (d.new_findings.length) {
+    html += '<div style="font-size:12px;font-weight:600;margin:8px 0 4px;color:var(--critical)">New findings:</div>';
+    for (const f of d.new_findings) html += `<div style="font-size:12px;padding:4px 0"><span class="sev-badge sev-${(f.severity||'info').toLowerCase()}">${f.severity}</span> ${esc(f.description)}</div>`;
+  }
+  if (d.resolved_findings.length) {
+    html += '<div style="font-size:12px;font-weight:600;margin:8px 0 4px;color:var(--green)">Resolved:</div>';
+    for (const f of d.resolved_findings) html += `<div style="font-size:12px;padding:4px 0"><span class="sev-badge sev-${(f.severity||'info').toLowerCase()}">${f.severity}</span> ${esc(f.description)}</div>`;
+  }
+  if (d.new_endpoints.length) {
+    html += '<div style="font-size:12px;font-weight:600;margin:8px 0 4px">New endpoints:</div>';
+    for (const ep of d.new_endpoints) html += `<div style="font-size:12px;font-family:var(--mono);padding:2px 0">${esc(ep)}</div>`;
+  }
+  dr.innerHTML = html;
+}
+
+// ── Init ──
+window.addEventListener('load', async () => {
+  loadModels();
+  // Check if admin to show users tab
+  try {
+    const r = await fetch('/api/users');
+    if (r.ok) { $('usersTab').style.display = ''; currentRole = 'admin'; }
+  } catch {}
+});
+</script>
+</body>
+</html>

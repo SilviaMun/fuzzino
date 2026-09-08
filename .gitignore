@@ -1,0 +1,71 @@
+# ─── Secrets & credentials ───
+.env
+.env.*
+!.env.example
+
+# ─── Database ───
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ─── TLS / Encryption ───
+certs/
+*.pem
+*.key
+*.crt
+*.csr
+
+# ─── Python ───
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+.eggs/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ─── Virtual environments ───
+.venv/
+venv/
+env/
+ENV/
+
+# ─── Scan reports (contain vuln data) ───
+*.json
+!package.json
+!composer.json
+!docker-compose.yml
+*.html
+!templates/*.html
+
+# ─── IDE ───
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-*
+
+# ─── OS ───
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ─── Docker (local state) ───
+docker-compose.override.yml
+
+# ─── Logs ───
+*.log
+
+# ─── Playwright (browser binaries) ───
+playwright-browsers/

@@ -1,0 +1,48 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Database & certs
+*.db
+*.db-wal
+*.db-shm
+certs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Reports
+*.json
+!package.json
+*.html
+!templates/*.html
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+Dockerfile
+
+# Docs (not needed in image)
+README.md
+LICENSE
+
+# Playwright browsers (too large, install in container if needed)
+playwright-browsers/

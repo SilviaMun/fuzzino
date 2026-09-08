@@ -1,0 +1,21 @@
+services:
+  scanner:
+    container_name: fuzzino
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      # Dati persistenti: DB, certificati TLS, salt encryption
+      - scanner-data:/app/data
+      - ./certs:/app/certs
+      - ./.env:/app/.env
+      - ./system_prompt.txt:/app/system_prompt.txt:ro
+    environment:
+      - DB_PATH=/app/data/scanner.db
+    extra_hosts:
+      # Permette al container di raggiungere Ollama sull'host
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  scanner-data:
